@@ -73,8 +73,7 @@
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            flex-direction: column;
+            display: flex; flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 10;
@@ -116,7 +115,7 @@
     </div>
 
     <div id="call-container">
-        <video id="main-video" playsinline></video>
+        <video id="main-video" playsinline muted></video>
 
         <div id="status-overlay" class="overlay">
             <div class="spinner"></div>
@@ -145,6 +144,13 @@
         });
 
         async function startCallSequence() {
+            // CRITICAL FOR MOBILE: Trigger a load/play attempt immediately on user click
+            // This "primes" the video element so it can play later inside the async sequence.
+            videoElement.play().then(() => {
+                videoElement.pause();
+                videoElement.currentTime = 0;
+            }).catch(e => console.log("Priming video..."));
+
             // Hide setup, show call UI
             document.getElementById('setup-screen').style.display = 'none';
             document.getElementById('call-container').style.display = 'block';
@@ -157,6 +163,9 @@
 
             // 2. Play video for 4 seconds
             statusOverlay.classList.add('hidden');
+            
+            // Unmute right before playing if you want sound (Note: might still block on some phones)
+            videoElement.muted = false; 
             videoElement.play();
 
             await wait(4000);
@@ -177,11 +186,10 @@
                 statusOverlay.classList.remove('hidden');
                 statusText.style.color = 'var(--error-red)';
                 statusText.innerText = "Call failed. Connection lost.";
-                // Hide spinner for error
                 document.querySelector('.spinner').classList.add('hidden');
 
                 await wait(10000);
-                location.reload(); // Reset the app
+                location.reload(); 
             };
         }
 
