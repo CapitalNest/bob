@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Call Interface</title>
+    <style>
+        :root {
+            --bg-color: #0b141a;
+            --text-color: #e9edef;
+            --accent-color: #00a884;
+            --error-red: #f15c6d;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Setup Phase Styles */
+        #setup-screen {
+            text-align: center;
+            background: #202c33;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .upload-btn {
+            background: var(--accent-color);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 20px;
+            transition: opacity 0.2s;
+        }
+
+        .upload-btn:hover { opacity: 0.9; }
+
+        /* Video Call Phase Styles */
+        #call-container {
+            display: none;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            background: #000;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            text-align: center;
+        }
+
+        .status-msg {
+            font-size: 1.2rem;
+            margin-top: 15px;
+            font-weight: 300;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top: 3px solid var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="setup-screen">
+        <h2 style="margin-top:0">Start Secure Call</h2>
+        <p style="color: #8696a0;">Select a video file to begin the session</p>
+        <input type="file" id="video-input" accept="video/*" style="display:none">
+        <button class="upload-btn" onclick="document.getElementById('video-input').click()">CHOOSE VIDEO</button>
+        <div id="file-name" style="margin-top:10px; font-size: 0.8rem; color: #8696a0;"></div>
+        <button id="start-btn" class="upload-btn" style="background: #34b7f1; display:none" onclick="startCallSequence()">START CALL</button>
+    </div>
+
+    <div id="call-container">
+        <video id="main-video" playsinline></video>
+
+        <div id="status-overlay" class="overlay">
+            <div class="spinner"></div>
+            <div id="status-text" class="status-msg">Connecting...</div>
+        </div>
+    </div>
+
+    <script>
+        const videoInput = document.getElementById('video-input');
+        const startBtn = document.getElementById('start-btn');
+        const fileNameDisp = document.getElementById('file-name');
+        const videoElement = document.getElementById('main-video');
+        const statusOverlay = document.getElementById('status-overlay');
+        const statusText = document.getElementById('status-text');
+
+        let videoUrl = '';
+
+        videoInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                videoUrl = URL.createObjectURL(file);
+                videoElement.src = videoUrl;
+                fileNameDisp.innerText = file.name;
+                startBtn.style.display = 'inline-block';
+            }
+        });
+
+        async function startCallSequence() {
+            // Hide setup, show call UI
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('call-container').style.display = 'block';
+
+            // 1. Initial Connecting / Bad Network (10s)
+            statusText.innerText = "Connecting...";
+            setTimeout(() => { statusText.innerText = "Poor connection. Reconnecting..."; }, 3000);
+
+            await wait(10000);
+
+            // 2. Play video for 4 seconds
+            statusOverlay.classList.add('hidden');
+            videoElement.play();
+
+            await wait(4000);
+
+            // 3. WhatsApp Reconnecting again (3s)
+            videoElement.pause();
+            statusOverlay.classList.remove('hidden');
+            statusText.innerText = "Reconnecting...";
+
+            await wait(3000);
+
+            // 4. Resume video until finish
+            statusOverlay.classList.add('hidden');
+            videoElement.play();
+
+            // 5. On video end: Error Message (10s)
+            videoElement.onended = async () => {
+                statusOverlay.classList.remove('hidden');
+                statusText.style.color = 'var(--error-red)';
+                statusText.innerText = "Call failed. Connection lost.";
+                // Hide spinner for error
+                document.querySelector('.spinner').classList.add('hidden');
+
+                await wait(10000);
+                location.reload(); // Reset the app
+            };
+        }
+
+        function wait(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+    </script>
+</body>
+</html>
